@@ -15,24 +15,24 @@ namespace JsonSchemaToEdmModel
 
             var container = new EdmEntityContainer("namespace", "containerName");
 
-            ConvertToEdmEntityType(schema, container, null);
+            var rootType = ConvertToEdmEntityType(schema, model, "root");
 
-
+            container.AddEntitySet("root", rootType);
             model.AddElement(container);
 
             return model;
         }
 
-        private EdmEntityType ConvertToEdmEntityType(JSchema schema, EdmEntityContainer container, string name)
+        private EdmEntityType ConvertToEdmEntityType(JSchema schema, EdmModel model, string name)
         {
-            var type = new EdmEntityType("root", name ?? "root");
+            var type = new EdmEntityType("namespace", name);
 
             foreach (var property in schema.Properties)
             {
                 if (property.Value.Type == null)
                     throw new Exception("Type specyfication missing.");
 
-                var structuralType = MapPropertyToStructuralType(property, schema, container);
+                var structuralType = MapPropertyToStructuralType(property, schema, model);
 
                 if (structuralType != null)
                 {
@@ -44,21 +44,21 @@ namespace JsonSchemaToEdmModel
                 }
             }
 
-            container.AddEntitySet(name ?? "root", type);
+            model.AddElement(type);
 
             return type;
         }
 
-        private IEdmTypeReference MapPropertyToStructuralType(KeyValuePair<string, JSchema> property, JSchema parent, EdmEntityContainer container)
+        private IEdmTypeReference MapPropertyToStructuralType(KeyValuePair<string, JSchema> property, JSchema parent, EdmModel model)
         {
             switch (property.Value.Type)
             {
                 case JSchemaType.String:
                     return MapStringProperties(property, parent);
                 case JSchemaType.Object:
-                    return MapObject(property, parent, container);
+                    return MapObject(property, parent, model);
                 case JSchemaType.Array:
-                    return MapArray(property, parent, container);
+                    return MapArray(property, parent, model);
                 case JSchemaType.None:
                 case JSchemaType.Number:
                 case JSchemaType.Integer:
@@ -70,7 +70,7 @@ namespace JsonSchemaToEdmModel
             }
         }
 
-        private IEdmTypeReference MapArray(KeyValuePair<string, JSchema> property, JSchema parent, EdmEntityContainer container)
+        private IEdmTypeReference MapArray(KeyValuePair<string, JSchema> property, JSchema parent, EdmModel model)
         {
             var entityPrimitiveType = ToEdmPrimitiveType(property.Value.Items.Single().Type.Value);
 
@@ -83,7 +83,7 @@ namespace JsonSchemaToEdmModel
             return new EdmCollectionTypeReference(collectionType, isNullable);
         }
 
-        private IEdmTypeReference MapObject(KeyValuePair<string, JSchema> property, JSchema parent, EdmEntityContainer container)
+        private IEdmTypeReference MapObject(KeyValuePair<string, JSchema> property, JSchema parent, EdmModel container)
         {
             var entityType = ConvertToEdmEntityType(property.Value, container, property.Key);
 
