@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Data.Edm;
 using Microsoft.Data.Edm.Library;
 using Newtonsoft.Json.Schema;
@@ -56,16 +57,30 @@ namespace JsonSchemaToEdmModel
                     return MapStringProperties(property, parent);
                 case JSchemaType.Object:
                     return MapObject(property, parent, container);
+                case JSchemaType.Array:
+                    return MapArray(property, parent, container);
                 case JSchemaType.None:
                 case JSchemaType.Number:
                 case JSchemaType.Integer:
                 case JSchemaType.Boolean:
-                case JSchemaType.Array:
                 case JSchemaType.Null:
                 case null:
                 default:
                     return null;
             }
+        }
+
+        private IEdmTypeReference MapArray(KeyValuePair<string, JSchema> property, JSchema parent, EdmEntityContainer container)
+        {
+            var entityPrimitiveType = ToEdmPrimitiveType(property.Value.Items.Single().Type.Value);
+
+            var entityType = EdmCoreModel.Instance.GetPrimitiveType(entityPrimitiveType);
+
+            var collectionType = new EdmCollectionType(new EdmPrimitiveTypeReference(entityType, false));
+
+            bool isNullable = !parent.Required.Contains(property.Key);
+
+            return new EdmCollectionTypeReference(collectionType, isNullable);
         }
 
         private IEdmTypeReference MapObject(KeyValuePair<string, JSchema> property, JSchema parent, EdmEntityContainer container)
